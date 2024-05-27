@@ -80,31 +80,37 @@ class GAT(nn.Module):
         self.output_shift = Parameter(torch.FloatTensor([-3]), requires_grad=False)
 
 
+    # feature ad label
+    # 这里写的输入就是分级label啊?
     def forward(self, x, adj, grad_labels, opt):
 
         # print("input shape:", x.shape)
         batch = torch.linspace(0, x.size(0) - 1, x.size(0), dtype=torch.long)
         batch = batch.unsqueeze(1).repeat(1, x.size(1)).view(-1).cuda()
 
+        # 这里应该是把mrna数据选出来
         if opt.cnv_dim == 80:
             cnv_feature = torch.mean(x[:, :80, :], dim=-1)
         x = x[:, 80:, :]
         x0 = torch.mean(x, dim=-1)
         # print("x0:", x0.shape)
 
+        # 第一层
         x = self.dropout_layer(x)
         x = torch.cat([att(x, adj) for att in self.attentions1], dim=-1) # [bs, N, nhid1*nhead1]
 
         x1 = self.pool1(x).squeeze(-1)
         # print("x1:", x1.shape)
 
+        # 第二层
         x = self.dropout_layer(x)
         x = torch.cat([att(x, adj) for att in self.attentions2], dim=-1)  # [bs, N, nhid2*nhead2]
 
         x2 = self.pool2(x).squeeze(-1)
         # print("x2:", x2)
 
-
+        # 这里设置的是720
+        # 把三层的特征拼接起来
         if opt.lin_input_dim == 800 or opt.lin_input_dim == 720:
             x = torch.cat([x0, x1, x2], dim=1)
         elif opt.lin_input_dim == 320 or opt.lin_input_dim == 240:
@@ -115,38 +121,32 @@ class GAT(nn.Module):
             elif opt.which_layer == 'layer3':
                 x = x2
 
+        # 这里设置的是0
         if opt.cnv_dim == 80:
             x = torch.cat([cnv_feature, x], dim=1)
 
+        # 记录拼接完的特征
         GAT_features = x
 
         # print("feature shape:", x.shape)
 
+        # 输入encoder再得到一个特征
         features = self.encoder(x)
+        # 再将这个特征输入分类器,得到的out就是整个模型的输出
         out = self.classifier(features)
 
+        # 记录全连接层的特征
         fc_features = features
 
+        # 这个act是干嘛?
         if self.act is not None:
             out = self.act(out)
 
             if isinstance(self.act, nn.Sigmoid):
                 out = out * self.output_range + self.output_shift
 
-        if opt.task == "grad":
-            one_hot_labels = torch.zeros(grad_labels.shape[0], 3).cuda().scatter(1, grad_labels.reshape(-1, 1), 1)
-            y_c = torch.sum(one_hot_labels*out)
-        elif opt.task == "surv":
-            y_c = torch.sum(out)
-        # print(out, y_c)
-        GAT_features.grad = None
-        GAT_features.retain_grad()
-        y_c.backward(retain_graph=True)
-        gradients = np.maximum(GAT_features.grad.detach().cpu().numpy(), 0)# (batch_size, 720)
-        feature_importance = np.mean(gradients, 0)
-
-        return GAT_features, fc_features, out, gradients, feature_importance
-
+        # GAT提取的特征,全连接层的特征,模型输出,梯度,不知道是啥
+        return out
 
 
 class GraphAttentionLayer(nn.Module):
@@ -238,4 +238,3 @@ def define_scheduler(opt, optimizer):
     else:
         return NotImplementedError('learning rate policy [%s] is not implemented', opt.lr_policy)
     return scheduler
-

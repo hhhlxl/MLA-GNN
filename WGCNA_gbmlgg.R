@@ -4,7 +4,7 @@ data_folder = "./data/RNAseq_graph/RNAseq"
 output_folder = "./data/RNAseq_graph/wgcna_output"
 
 cancer = "GBMLGG"
-data_file = paste(data_folder, cancer, "split15_train_320d_features_labels.csv", sep='/')
+data_file = paste(data_folder, cancer, "split1_train_320d_features_labels.csv", sep='/')
 dir.create(paste(output_folder, cancer, sep='/'))
 # WGCNA parameters
 wgcna_power = 6
@@ -22,5 +22,5 @@ geneExp[is.na(geneExp)]<-0
 
 library(WGCNA)
 adjacency = adjacency(geneExp, power = wgcna_power)
-write.csv(adjacency,file=paste(output_folder, cancer, "split15_adjacency_matrix.csv", sep='/'),quote=F,row.names = F)
+write.csv(adjacency,file=paste(output_folder, cancer, "split1_adjacency_matrix.csv", sep='/'),quote=F,row.names = F)
 

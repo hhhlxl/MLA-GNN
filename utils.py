@@ -21,9 +21,12 @@ def load_csv_data(k, opt):
     folder_path = './example_data/input_features_labels/split'
     print("Loading data from:", folder_path+str(k))
     train_data_path = folder_path+str(k)+'_train_320d_features_labels.csv'
+    # 将读取的数据转为np.array
     train_data = np.array(pd.read_csv(train_data_path, header=None))[1:, 2:].astype(float)
 
+    # 选取数据中的前320列为特征
     tr_features = torch.FloatTensor(train_data[:, :320].reshape(-1, 320, 1)).requires_grad_()
+    # 数据中的后3列为label，包括生存状态和生存时间
     tr_labels = torch.LongTensor(train_data[:, 320:])
     print("Training features and labels:", tr_features.shape, tr_labels.shape)
 
@@ -36,10 +39,14 @@ def load_csv_data(k, opt):
 
     similarity_matrix = np.array(pd.read_csv(
         './example_data/input_adjacency_matrix/split'+str(k)+'_adjacency_matrix.csv')).astype(float)
+    # 这里的操作应该是筛选边，adj_tresh=0.08
     adj_matrix = torch.LongTensor(np.where(similarity_matrix > opt.adj_thresh, 1, 0))
+    # 为什么这里是240×240（在进行WGCNA分析的时候就只选择了83-322号基因），而输入的基因特征数还是320？
+    # 解释：因为83-322号是RNA-seq数据，前面的是mrna数据，这里只用RNA-seq数据
     print("Adjacency matrix:", adj_matrix.shape)
     print("Number of edges:", adj_matrix.sum())
 
+    # 如果是肿瘤分级任务就要删除没有label的数据
     if opt.task == "grad":
         tr_idx = tr_labels[:, 2] >= 0
         tr_labels = tr_labels[tr_idx]
