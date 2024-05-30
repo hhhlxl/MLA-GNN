@@ -10,7 +10,6 @@ from utils import *
 from model_GAT import *
 from options import parse_args
 from test_model import test
-from train_model import train
 from model_GAT import *
 from torch import optim
 import torch.utils.data as Data
@@ -32,7 +31,7 @@ model = GAT(opt=opt, input_dim=opt.input_dim, omic_dim=opt.omic_dim, label_dim=o
             dropout=opt.dropout, alpha=opt.alpha).cuda()
 
 # 是否为实例？
-if isinstance(model, torch.nn.DataParallel): model = model.module
+# if isinstance(model, torch.nn.DataParallel): model = model.module
 
 # 设置损失函数和优化器
 optimizer = define_optimizer(opt, model)
@@ -67,12 +66,16 @@ for k in range(1, epochs + 1):
         pred = tr_preds.argmax(dim=1, keepdim=True)
 
         grad_acc_train += pred.eq(grad_batch_labels.view_as(pred)).sum().item()
-        #print("pred:", pred)
-        #print("label:", grad_batch_labels)
+        print("pred:", pred)
+        print("label:", grad_batch_labels)
 
+        # 反向传播和优化
+        optimizer.zero_grad()
         grad_loss.backward(retain_graph=True)
-        scheduler.step()
+        optimizer.step()
+    scheduler.step()
 
+    model.eval()
     loss_train /= len(train_loader.dataset)
     grad_acc_train = grad_acc_train / len(train_loader.dataset)
 

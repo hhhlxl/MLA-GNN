@@ -19,8 +19,8 @@ def parse_args():
     parser.add_argument('--lambda_reg', type=float, default=3e-4)
     parser.add_argument('--lambda_nll', type=float, default=1)
 
-    parser.add_argument('--task', type=str, default='grad', help='surv | grad')
-    parser.add_argument('--label_dim', type=int, default=3, help='size of output, grad task: label_dim=2, surv task: label_dim=1')
+    parser.add_argument('--task', type=str, default='surv', help='surv | grad')
+    parser.add_argument('--label_dim', type=int, default=1, help='size of output, grad task: label_dim=2, surv task: label_dim=1')
     parser.add_argument('--input_dim', type=int, default=1, help="input_size for omic vector")
     parser.add_argument('--lin_input_dim', type=int, default=720, help="the feature extracted by GAT layers")
     parser.add_argument('--which_layer', type=str, default='all', help='layer1 | layer2 | layer3, which GAT layer as the input of fc layers.')

@@ -88,10 +88,11 @@ class GAT(nn.Module):
         batch = torch.linspace(0, x.size(0) - 1, x.size(0), dtype=torch.long)
         batch = batch.unsqueeze(1).repeat(1, x.size(1)).view(-1).cuda()
 
-        # 这里应该是把mrna数据选出来
-        if opt.cnv_dim == 80:
-            cnv_feature = torch.mean(x[:, :80, :], dim=-1)
-        x = x[:, 80:, :]
+        # 这里应该是把cnv数据选出来，然后和mrna数据拼接
+        #if opt.cnv_dim == 80:
+        #    cnv_feature = torch.mean(x[:, :80, :], dim=-1)
+        # 如果不用cnv数据，则提取80开始之后的mrna数据
+        # x = x[:, 80:, :]
         x0 = torch.mean(x, dim=-1)
         # print("x0:", x0.shape)
 

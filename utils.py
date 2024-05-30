@@ -6,9 +6,9 @@ import pandas as pd
 import torch.utils.data as Data
 from torch.utils.data.dataset import Dataset
 
-# import lifelines
-# from lifelines.utils import concordance_index
-# from lifelines.statistics import logrank_test
+import lifelines
+from lifelines.utils import concordance_index
+from lifelines.statistics import logrank_test
 
 from sklearn.metrics import auc, f1_score, roc_curve, precision_score, recall_score, cohen_kappa_score
 from sklearn.preprocessing import LabelBinarizer
@@ -16,6 +16,33 @@ from sklearn.preprocessing import LabelBinarizer
 ################
 # Data Utils
 ################
+
+def load_csv_data_my(opt):
+    folder_path = 'my_data/'
+    print("Loading data from:", folder_path)
+    train_data_path = folder_path + 'features.csv'
+    train_label_path = folder_path + 'label.csv'
+    # 将读取的数据转为np.array
+    train_data = np.array(pd.read_csv(train_data_path, header=None, dtype=str))[1:, 1:].astype(float)
+    train_label = np.array(pd.read_csv(train_label_path, header=None))[1:,[2,4]].astype(float)
+
+    #
+    num_features = train_data.shape[1]
+    tr_features = torch.FloatTensor(train_data.reshape(-1, num_features, 1)).requires_grad_()
+    #
+    tr_labels = torch.LongTensor(train_label)
+    print("Training features and labels:", tr_features.shape, tr_labels.shape)
+
+
+    similarity_matrix = np.array(pd.read_csv(
+        './my_data/adjacency.csv')).astype(float)
+    # 这里的操作应该是筛选边，adj_tresh=0.08
+    adj_matrix = torch.LongTensor(np.where(similarity_matrix > opt.adj_thresh, 1, 0))
+    # 为什么这里是240×240（在进行WGCNA分析的时候就只选择了83-322号基因），而输入的基因特征数还是320？
+    # 解释：因为83-322号是RNA-seq数据，前面的是mrna数据，这里只用RNA-seq数据
+    print("Adjacency matrix:", adj_matrix.shape)
+    print("Number of edges:", adj_matrix.sum())
+    return tr_features, tr_labels, adj_matrix
 
 def load_csv_data(k, opt):
     folder_path = './example_data/input_features_labels/split'
@@ -128,23 +155,42 @@ def compute_metrics(test_pred, gt_labels):
 ################
 # Survival Utils
 ################
-def CoxLoss(survtime, censor, hazard_pred):
-    # This calculation credit to Travers Ching https://github.com/traversc/cox-nnet
-    # Cox-nnet: An artificial neural network method for prognosis prediction of high-throughput omics data
-    current_batch_len = len(survtime)
-    R_mat = np.zeros([current_batch_len, current_batch_len], dtype=int)
-    # print("R mat shape:", R_mat.shape)
-    for i in range(current_batch_len):
-        for j in range(current_batch_len):
-            R_mat[i, j] = survtime[j] >= survtime[i]
+# surv_batch_labels, censor_batch_labels, tr_preds
+# def CoxLoss(survtime, censor, hazard_pred):
+#     # This calculation credit to Travers Ching https://github.com/traversc/cox-nnet
+#     # Cox-nnet: An artificial neural network method for prognosis prediction of high-throughput omics data
+#     current_batch_len = len(survtime)
+#     R_mat = np.zeros([current_batch_len, current_batch_len], dtype=int)
+#     # print("R mat shape:", R_mat.shape)
+#     for i in range(current_batch_len):
+#         for j in range(current_batch_len):
+#             R_mat[i, j] = survtime[j] >= survtime[i]
+#
+#     R_mat = torch.FloatTensor(R_mat).cuda()
+#     theta = hazard_pred.reshape(-1)
+#     exp_theta = torch.exp(theta)
+#     # print("censor and theta shape:", censor.shape, theta.shape)
+#     loss_cox = -torch.mean((theta - torch.log(torch.sum(exp_theta*R_mat, dim=1))) * censor)
+#     return loss_cox
 
-    R_mat = torch.FloatTensor(R_mat).cuda()
-    theta = hazard_pred.reshape(-1)
-    exp_theta = torch.exp(theta)
-    # print("censor and theta shape:", censor.shape, theta.shape)
-    loss_cox = -torch.mean((theta - torch.log(torch.sum(exp_theta*R_mat, dim=1))) * censor)
-    return loss_cox
+class CoxLoss(nn.Module):
+    def __init__(self):
+        super(CoxLoss, self).__init__()
 
+    def forward(self, survtime, censor, hazard_pred):
+        current_batch_len = len(survtime)
+        R_mat = np.zeros([current_batch_len, current_batch_len], dtype=int)
+        # print("R mat shape:", R_mat.shape)
+        for i in range(current_batch_len):
+            for j in range(current_batch_len):
+                R_mat[i, j] = survtime[j] >= survtime[i]
+
+        R_mat = torch.FloatTensor(R_mat).cuda()
+        theta = hazard_pred.reshape(-1)
+        exp_theta = torch.exp(theta)
+        # print("censor and theta shape:", censor.shape, theta.shape)
+        loss_cox = -torch.mean((theta - torch.log(torch.sum(exp_theta * R_mat, dim=1))) * censor)
+        return loss_cox
 
 
 def accuracy_cox(hazardsdata, labels):

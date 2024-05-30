@@ -39,8 +39,7 @@ def test(opt, model, te_features, te_labels, adj_matrix):
         grad_batch_labels = grade.cuda() if "grad" in opt.task else grade
         # 把数据和label输入模型,得到结果?但是这里输入的label是分级label,没有输入生存label
         # 输出：GAT提取的特征(GAT_features),全连接层的特征(fc_features),模型输出(out),梯度(gradients),不知道是啥(feature_importance)
-        te_features, te_fc_features, te_preds, gradients, feature_importance = model(
-            batch_features.cuda(), adj_matrix.cuda(), grad_batch_labels, opt)
+        te_features, te_fc_features, te_preds, gradients, feature_importance = model(batch_features.cuda(), adj_matrix.cuda(), grad_batch_labels, opt)
 
         # print("surv_batch_labels:", surv_batch_labels)
         # print("te_preds:", te_preds)
